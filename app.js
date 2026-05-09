@@ -2,6 +2,11 @@ const countryInput = document.getElementById("countryInput");
 const searchBtn = document.getElementById("searchBtn");
 const resultDiv = document.getElementById("result");
 
+if(!countryInput || !searchBtn || !resultDiv){
+  console.log("Required DOM elements not found");
+  throw new Error("Application initialization failed");
+}
+
 window.addEventListener("offline", () => {
   resultDiv.innerHTML = "⚠️ You are offline now.";
 });
