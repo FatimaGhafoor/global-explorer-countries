@@ -6,89 +6,83 @@ const CONFIG = {
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
 };
 
-const countryInput = document.getElementById("countryInput");
-const searchBtn = document.getElementById("searchBtn");
-const resultDiv = document.getElementById("result");
+const ErrorMessages = {
+  NO_CONNECTION: "❌ No internet connection",
+  EMPTY_INPUT: "⚠️ Please enter a country name",
+  NOT_FOUND: "❌ Country not found",
+  RATE_LIMITED: "❌ Too many requests. Please try again later",
+  SERVER_ERROR: "❌ Server error. Please try again later",
+};
 
-if (!countryInput || !searchBtn || !resultDiv) {
-  console.log("Required DOM elements not found");
-  throw new Error("Application initialization failed");
-}
-
-window.addEventListener("offline", () => {
-  resultDiv.innerHTML = "⚠️ You are offline now.";
-});
-
-window.addEventListener("online", () => {
-  resultDiv.innerHTML = "✅ Back online! You can search again.";
-});
-
-async function handleSearch() {
-  if (!navigator.onLine) {
-    resultDiv.innerHTML = `
-  <p style="color:red; font-weight:bold;">
-    ❌ No internet connection. Please check your network.
-  </p>
-`;
-    return;
+class CountrySearchApp {
+  constructor() {
+    this.validateDOM();
+    this.cache = new Map();
+    this.currentRequest = null;
+    this.init();
   }
 
-  const countryName = countryInput.value.trim();
+  validateDOM() {
+    this.countryInput = document.getElementById("countryInput");
+    this.searchBtn = document.getElementById("searchBtn");
+    this.resultDiv = document.getElementById("result");
 
-  if (!countryName) {
-    resultDiv.innerHTML = "<p>⚠️ Please enter a country name.</p>";
-    return;
+    if (!this.countryInput || !this.searchBtn || !this.resultDiv) {
+      throw new Error("Required DOM elements not found");
+    }
   }
 
-  try {
-    resultDiv.innerHTML = "<p>⏳ Loading...</p>";
+  init() {
+    this.setupEventListeners();
+    this.setupNetworkListeners();
+  }
 
-    const response = await fetch(`${CONFIG.API_URL}/${country}`);
+  setupEventListeners() {
+    this.searchBtn.addEventListener("click", () => this.handleSearch());
+    this.countryInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.handleSearch();
+      }
+    });
+  }
 
-    if (!response.ok) {
-      throw new Error("Country not found");
+  setupNetworkListeners() {
+    window.addEventListener("offline", () => {
+      this.showMessage(ErrorMessages.NO_CONNECTION, "error");
+    });
+    window.addEventListener("online", () => {
+      this.showMessage("✅ Back online!", "success");
+    });
+  }
+  
+  async handleSearch() {
+    if (!navigator.onLine) {
+      this.showMessage(ErrorMessages.NO_CONNECTION, "error");
+      return;
+    }
+    const countryName = this.countryInput.ariaValueMax.trim();
+
+    if (!countryName) {
+      this.showMessage(ErrorMessages.EMPTY_INPUT, "warnings");
+      return;
     }
 
-    const data = await response.json();
+    const cached = this.cache.get(countryName);
+    if (cached) {
+      this.displayResults(cached);
+      return;
+    }
 
-    let output = `
-      <table>
-        <thead>
-          <tr>
-            <th>Country</th>
-            <th>Capital</th>
-            <th>Population</th>
-            <th>Region</th>
-            <th>Flag</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    this.showLoading();
 
-    data.slice(0, CONFIG.MAX_RESULTS).forEach((country) => {
-      output += `
-        <tr>
-          <td>${country.name.common}</td>
-          <td>${country.capital ? country.capital[0] : "N/A"}</td>
-          <td>${country.population.toLocaleString()}</td>
-          <td>${country.region}</td>
-          <td><img src="${country.flags.svg}" width="${CONFIG.FLAG_WIDTH}" alt="Flag of ${country.name.common}"></td>
-        </tr>
-      `;
-    });
-
-    output += "</tbody></table>";
-    resultDiv.innerHTML = output;
-  } catch (error) {
-    resultDiv.innerHTML = `<p>❌ ${error.message}</p>`;
+    try {
+      const data = await this.fetchCountries(countryName);
+      this.cache.set(countryName, data);
+      this.displayResults(data);
+    } catch (error) {
+      this.handleError(error);
+    }
   }
+
 }
-
-searchBtn.addEventListener("click", handleSearch);
-
-countryInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    handleSearch();
-  }
-});
