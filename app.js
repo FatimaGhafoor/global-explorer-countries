@@ -6,6 +6,7 @@ const CONFIG = {
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
 };
 
+// Error Messages
 const ErrorMessages = {
   NO_CONNECTION: "❌ No internet connection",
   EMPTY_INPUT: "⚠️ Please enter a country name",
@@ -61,13 +62,15 @@ class CountrySearchApp {
       this.showMessage(ErrorMessages.NO_CONNECTION, "error");
       return;
     }
-    const countryName = this.countryInput.ariaValueMax.trim();
+
+    const countryName = this.countryInput.value.trim();
 
     if (!countryName) {
-      this.showMessage(ErrorMessages.EMPTY_INPUT, "warnings");
+      this.showMessage(ErrorMessages.EMPTY_INPUT, "warning");
       return;
     }
 
+    // Check cache
     const cached = this.cache.get(countryName);
     if (cached) {
       this.displayResults(cached);
@@ -112,7 +115,7 @@ class CountrySearchApp {
       throw new Error(ErrorMessages.NOT_FOUND);
     } else if (statusCode === 429) {
       throw new Error(ErrorMessages.RATE_LIMITED);
-    } else if (statusCode === 500) {
+    } else if (statusCode >= 500) {
       throw new Error(ErrorMessages.SERVER_ERROR);
     }
 
@@ -163,7 +166,7 @@ class CountrySearchApp {
     return table;
   }
 
-    escapeHtml(text) {
+  escapeHtml(text) {
     const map = {
       "&": "&amp;",
       "<": "&lt;",
@@ -188,12 +191,12 @@ class CountrySearchApp {
     this.resultDiv.innerHTML = `<p style="color: ${colors[type]};">${message}</p>`;
   }
 
-  handleError(error){
-    if(error.name === "AbortError"){
-        return;
+  handleError(error) {
+    if (error.name === "AbortError") {
+      return; // User cancelled
     }
     this.showMessage(error.message, "error");
-}
+  }
 }
 
 // Initialize
